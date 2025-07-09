@@ -39,6 +39,11 @@
     height: 100%;
     overflow-y: auto;
     background-color: transparent; /* 确保背景透明 */
+
+    background-image: url('@/assets/background-1.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat
   }
   
   .welcome-banner {
@@ -50,11 +55,12 @@
     font-size: 2.5rem;
     font-weight: 600;
     margin-bottom: 10px;
+    color: #e6f7ff; /* 调整为淡蓝色，更突出 */
   }
   
   .welcome-banner p {
     font-size: 1.2rem;
-    color: #ccc;
+     color: #adebad; /* 调整为淡绿色 */
   }
   
   .metrics-grid {
@@ -65,34 +71,35 @@
   }
   
   .metric-card {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(0, 50, 20, 0.4); /* 调整背景色，增加对比度 */
     border-radius: 10px;
     padding: 25px;
     text-align: center;
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(0, 255, 127, 0.3); /* 边框调整为绿色系 */
   }
   
   .metric-card h2 {
     font-size: 1.2rem;
     margin-bottom: 15px;
-    color: #eee;
+     color: #f0f0f0;
   }
   
   .metric-value {
     font-size: 2.8rem;
     font-weight: bold;
     margin-bottom: 5px;
+    color: #32cd32; /* 主要数值使用鲜明的绿色 */
   }
   
   .metric-unit {
     font-size: 1.2rem;
     margin-left: 5px;
-    color: #ccc;
+    color: #98fb98;
   }
   
   .metric-desc {
     font-size: 0.9rem;
-    color: #bbb;
+    color: #b2f2bb; /* 描述文字使用更柔和的绿色 */
   }
   </style>
