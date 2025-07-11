@@ -234,12 +234,20 @@ public class RoutePlannerService {
     /**
      * 为所有边计算拥堵系数
      */
-    private void calculateCongestionForEdges(int timePoint, double alpha) {
-        for (Edge edge : edges) {
-            double flowFrom = pythonModelService.predictVolume(edge.getFrom(), timePoint);
-            double flowTo = pythonModelService.predictVolume(edge.getTo(), timePoint);
-            double avgFlow = (flowFrom + flowTo) / 2.0;
+    /**
+     * 为所有边计算拥堵系数（优化版本 - 避免重复预测）
+     */
 
+    private void calculateCongestionForEdges(int timePoint, double alpha) {
+        Map<Integer, Double> nodeVolumeCache = new HashMap<>();
+
+        for (Edge edge : edges) {
+            double flowFrom = nodeVolumeCache.computeIfAbsent(edge.getFrom(),
+                    nodeId -> pythonModelService.predictVolume(nodeId, timePoint));
+            double flowTo = nodeVolumeCache.computeIfAbsent(edge.getTo(),
+                    nodeId -> pythonModelService.predictVolume(nodeId, timePoint));
+
+            double avgFlow = (flowFrom + flowTo) / 2.0;
             double congestion = edge.getDistance() * (1 + alpha * avgFlow);
             edge.setWeight(congestion);
             edge.setCongestion(congestion);
