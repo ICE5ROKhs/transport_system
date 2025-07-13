@@ -1,47 +1,84 @@
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'; // 导入 useRouter
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-const router = useRouter()
-// 控制当前显示的是登录表单还是注册表单
-const isLogin = ref(true)
+const router = useRouter();
+const isLogin = ref(true);
 
-// 登录表单的数据
+// --- 数据模型 ---
 const loginForm = ref({
-  username: '',
-  password: ''
-})
+  email: '',
+  password: '',
+});
 
-// 注册表单的数据
 const registerForm = ref({
-  name: '',
   username: '',
   password: '',
   email: '',
-  phone: '',
-  code: ''
-})
+  verificationCode: '',
+});
 
-// 处理登录逻辑
+// --- 验证码相关状态 ---
+const isCodeSent = ref(false);
+const countdown = ref(60);
+let timer = null;
+
+// --- 方法 ---
+
+// 登录处理
 const handleLogin = () => {
-    console.log('登录信息:', loginForm.value)
-  // 在这里添加跳转逻辑
-  router.push('/main')
-}
+  console.log('发起登录请求:', loginForm.value);
+  // 模拟API调用
+  // 实际应用中，这里会是一个 fetch 或 axios 请求
+  // fetch('/api/auth/login', { method: 'POST', body: JSON.stringify(loginForm.value) })
+  alert(`登录成功（模拟），Token: fake-jwt-token, 用户名: ${loginForm.value.email}`);
+  router.push('/main'); // 登录成功后跳转
+};
 
-// 处理注册逻辑
+// 注册处理
 const handleRegister = () => {
-  console.log('处理注册:', registerForm.value)
-  // 在这里添加实际的注册请求逻辑
-  alert('注册成功！(模拟)')
-}
+  console.log('发起注册请求:', registerForm.value);
+  // 模拟API调用
+  alert('注册成功（模拟）');
+  isLogin.value = true; // 注册成功后切换到登录界面
+};
 
-// 获取验证码的逻辑
-const getVerificationCode = () => {
-  console.log('获取验证码，手机号:', registerForm.value.phone)
-  // 在这里添加调用后端接口发送验证码的逻辑
-  alert('验证码已发送 (模拟)')
-}
+// 发送验证码
+const sendVerificationCode = () => {
+  if (!registerForm.value.email) {
+    alert('请输入邮箱地址');
+    return;
+  }
+  console.log('向邮箱发送验证码:', registerForm.value.email);
+  // 模拟API调用
+  alert('验证码已发送至您的邮箱（模拟），请注意查收');
+
+  // 启动60秒倒计时
+  isCodeSent.value = true;
+  countdown.value = 60;
+  timer = setInterval(() => {
+    if (countdown.value > 0) {
+      countdown.value--;
+    } else {
+      clearInterval(timer);
+      isCodeSent.value = false;
+    }
+  }, 1000);
+};
+
+// 切换表单时重置状态
+const switchForm = (targetIsLogin) => {
+  isLogin.value = targetIsLogin;
+  // 清理可能正在运行的计时器
+  if (timer) {
+    clearInterval(timer);
+  }
+  isCodeSent.value = false;
+  // 重置表单数据
+  loginForm.value = { email: '', password: '' };
+  registerForm.value = { username: '', password: '', email: '', verificationCode: '' };
+};
+
 </script>
 
 <template>
@@ -52,14 +89,14 @@ const getVerificationCode = () => {
         <form v-if="isLogin" @submit.prevent="handleLogin">
           <h2>用户登录</h2>
           <div class="input-group">
-            <input type="text" v-model="loginForm.username" placeholder="用户名" required>
+            <input type="email" v-model="loginForm.email" placeholder="邮箱" required>
           </div>
           <div class="input-group">
             <input type="password" v-model="loginForm.password" placeholder="密码" required>
           </div>
           <button type="submit" class="btn">登录</button>
           <p class="switch-form">
-            没有账户? <a href="#" @click.prevent="isLogin = false">立即注册</a>
+            没有账户? <a href="#" @click.prevent="switchForm(false)">立即注册</a>
           </p>
         </form>
 
@@ -67,27 +104,23 @@ const getVerificationCode = () => {
         <form v-else @submit.prevent="handleRegister">
           <h2>用户注册</h2>
           <div class="input-group">
-            <input type="text" v-model="registerForm.name" placeholder="姓名" required>
+            <input type="text" v-model="registerForm.username" placeholder="用户名 (长度3-20)" required>
           </div>
-          <div class="input-group">
-            <input type="text" v-model="registerForm.username" placeholder="用户名" required>
-          </div>
-          <div class="input-group">
-            <input type="password" v-model="registerForm.password" placeholder="密码" required>
-          </div>
-          <div class="input-group">
+           <div class="input-group">
             <input type="email" v-model="registerForm.email" placeholder="邮箱" required>
           </div>
           <div class="input-group">
-            <input type="tel" v-model="registerForm.phone" placeholder="电话号码" required>
+            <input type="password" v-model="registerForm.password" placeholder="密码 (不少于6位)" required>
           </div>
           <div class="input-group verification-code">
-            <input type="text" v-model="registerForm.code" placeholder="验证码" required>
-            <button type="button" @click="getVerificationCode" class="btn-code">获取验证码</button>
+            <input type="text" v-model="registerForm.verificationCode" placeholder="验证码" required>
+            <button type="button" @click="sendVerificationCode" class="btn-code" :disabled="isCodeSent">
+              {{ isCodeSent ? `${countdown}秒后重试` : '获取验证码' }}
+            </button>
           </div>
           <button type="submit" class="btn">注册</button>
           <p class="switch-form">
-            已有账户? <a href="#" @click.prevent="isLogin = true">立即登录</a>
+            已有账户? <a href="#" @click.prevent="switchForm(true)">立即登录</a>
           </p>
         </form>
       </div>
@@ -102,7 +135,7 @@ const getVerificationCode = () => {
   align-items: center;
   height: 100vh;
   width: 100vw;
-  background-image: url('@/assets/background.png');
+  background-image: url('@/assets/background.png'); /* 请确保背景图片路径正确 */
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -117,13 +150,13 @@ const getVerificationCode = () => {
   width: 100%;
   max-width: 400px;
   border: 1px solid rgba(255, 255, 255, 0.3);
-  text-align: center; /* 确保内容居中 */
+  text-align: center;
 }
 
 h2 {
   text-align: center;
   margin-bottom: 1.5rem;
-  color: #333;
+  color: #fff; /* 调整为白色以适应深色背景 */
 }
 
 .input-group {
@@ -136,6 +169,7 @@ input {
   border: 1px solid #ccc;
   border-radius: 4px;
   box-sizing: border-box;
+  background-color: rgba(255, 255, 255, 0.8);
 }
 
 .btn {
@@ -157,10 +191,11 @@ input {
 .switch-form {
   text-align: center;
   margin-top: 1rem;
+  color: #f0f0f0;
 }
 
 .switch-form a {
-  color: #007bff;
+  color: #87cefa; /* 淡蓝色链接 */
   text-decoration: none;
 }
 
@@ -182,5 +217,11 @@ input {
   cursor: pointer;
   border-top-right-radius: 4px;
   border-bottom-right-radius: 4px;
+  white-space: nowrap; /* 防止文字换行 */
+}
+
+.btn-code:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
 }
 </style>
