@@ -5,7 +5,7 @@ Content-Type: application/json
   "messages": [
     {
       "role": "user",
-      "content": "你好，我想从北京到上海，我需要准备什么。"
+      "content": "你好。"
     }
   ],
   "model": "ernie-3.5-8k"

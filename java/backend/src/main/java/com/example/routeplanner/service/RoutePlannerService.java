@@ -160,17 +160,99 @@ public class RoutePlannerService {
     }
 
     /**
-     * 规划最优路径
+     * 规划路径 - 同时返回最优路径和最短距离路径
      */
     public RouteResponse planRoute(RouteRequest request) {
         if (!nodes.containsKey(request.getStartNode()) || !nodes.containsKey(request.getEndNode())) {
             return new RouteResponse(false, "起点或终点不存在");
         }
 
+        try {
+            // 1. 计算考虑拥堵的最优路径
+            RouteResponse.PathResult optimalPath = calculateOptimalPath(request);
+
+            // 2. 计算绝对距离最短路径
+            RouteResponse.PathResult shortestPath = calculateShortestDistancePath(request);
+
+            // 3. 构建响应
+            RouteResponse response = new RouteResponse(true, "路径规划成功");
+            response.setOptimalPath(optimalPath);
+            response.setShortestPath(shortestPath);
+
+            // 4. 添加比较信息
+            String comparisonMessage = buildComparisonMessage(optimalPath, shortestPath);
+            response.setMessage(response.getMessage() + "\n" + comparisonMessage);
+
+            return response;
+
+        } catch (Exception e) {
+            logger.error("路径规划失败: {}", e.getMessage());
+            return new RouteResponse(false, "路径规划失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 计算考虑拥堵的最优路径
+     */
+    private RouteResponse.PathResult calculateOptimalPath(RouteRequest request) {
+        logger.info("开始计算最优路径（考虑拥堵）");
+
         // 为所有边计算拥堵系数
         calculateCongestionForEdges(request.getTimePoint(), request.getCongestionAlpha());
 
-        // 使用 Dijkstra 算法计算最短路径
+        // 使用 Dijkstra 算法计算最短路径（基于拥堵权重）
+        DijkstraResult result = dijkstra(request.getStartNode(), request.getEndNode(), true);
+
+        if (result.path.isEmpty()) {
+            throw new RuntimeException("无法找到最优路径");
+        }
+
+        RouteResponse.PathResult pathResult = new RouteResponse.PathResult("最优路径（考虑拥堵）");
+        pathResult.setPath(result.path);
+        pathResult.setTotalCongestion(result.totalWeight);
+        pathResult.setTotalDistance(calculateTotalDistance(result.path));
+        pathResult.setPathEdges(getPathEdges(result.path));
+        pathResult.setTravelTime(estimateTravelTime(pathResult.getTotalDistance(), pathResult.getTotalCongestion()));
+
+        logger.info("最优路径计算完成: 距离={}km, 拥堵指数={}, 预计时间={}分钟",
+                pathResult.getTotalDistance(), pathResult.getTotalCongestion(), pathResult.getTravelTime());
+
+        return pathResult;
+    }
+
+    /**
+     * 计算绝对距离最短路径
+     */
+    private RouteResponse.PathResult calculateShortestDistancePath(RouteRequest request) {
+        logger.info("开始计算最短距离路径");
+
+        // 重置所有边的权重为距离
+        resetEdgeWeightsToDistance();
+
+        // 使用 Dijkstra 算法计算最短路径（基于距离）
+        DijkstraResult result = dijkstra(request.getStartNode(), request.getEndNode(), false);
+
+        if (result.path.isEmpty()) {
+            throw new RuntimeException("无法找到最短距离路径");
+        }
+
+        RouteResponse.PathResult pathResult = new RouteResponse.PathResult("最短距离路径");
+        pathResult.setPath(result.path);
+        pathResult.setTotalDistance(result.totalWeight);
+        pathResult.setTotalCongestion(calculatePathCongestion(result.path, request.getTimePoint(), request.getCongestionAlpha()));
+        pathResult.setPathEdges(getPathEdges(result.path));
+        pathResult.setTravelTime(estimateTravelTime(pathResult.getTotalDistance(), pathResult.getTotalCongestion()));
+
+        logger.info("最短距离路径计算完成: 距离={}km, 拥堵指数={}, 预计时间={}分钟",
+                pathResult.getTotalDistance(), pathResult.getTotalCongestion(), pathResult.getTravelTime());
+
+        return pathResult;
+    }
+
+    /**
+     * Dijkstra 算法实现
+     */
+    private DijkstraResult dijkstra(int startNode, int endNode, boolean useCongestionWeight) {
         Map<Integer, Double> distances = new HashMap<>();
         Map<Integer, Integer> previous = new HashMap<>();
         PriorityQueue<Map.Entry<Integer, Double>> pq = new PriorityQueue<>(
@@ -180,8 +262,8 @@ public class RoutePlannerService {
         for (int nodeId : nodes.keySet()) {
             distances.put(nodeId, Double.MAX_VALUE);
         }
-        distances.put(request.getStartNode(), 0.0);
-        pq.offer(new AbstractMap.SimpleEntry<>(request.getStartNode(), 0.0));
+        distances.put(startNode, 0.0);
+        pq.offer(new AbstractMap.SimpleEntry<>(startNode, 0.0));
 
         while (!pq.isEmpty()) {
             Map.Entry<Integer, Double> current = pq.poll();
@@ -192,11 +274,16 @@ public class RoutePlannerService {
                 continue;
             }
 
+            if (currentNode == endNode) {
+                break; // 找到目标节点，提前结束
+            }
+
             List<Edge> neighbors = adjacencyList.get(currentNode);
             if (neighbors != null) {
                 for (Edge edge : neighbors) {
                     int neighbor = edge.getTo();
-                    double newDist = currentDist + edge.getWeight();
+                    double weight = useCongestionWeight ? edge.getWeight() : edge.getDistance();
+                    double newDist = currentDist + weight;
 
                     if (newDist < distances.get(neighbor)) {
                         distances.put(neighbor, newDist);
@@ -209,10 +296,10 @@ public class RoutePlannerService {
 
         // 重构路径
         List<Integer> path = new ArrayList<>();
-        Integer current = request.getEndNode();
+        Integer current = endNode;
 
         if (!distances.containsKey(current) || distances.get(current) == Double.MAX_VALUE) {
-            return new RouteResponse(false, "无法找到从起点到终点的路径");
+            return new DijkstraResult(new ArrayList<>(), 0.0);
         }
 
         while (current != null) {
@@ -221,23 +308,12 @@ public class RoutePlannerService {
         }
         Collections.reverse(path);
 
-        // 构建响应
-        RouteResponse response = new RouteResponse(true, "路径规划成功");
-        response.setPath(path);
-        response.setTotalCongestion(distances.get(request.getEndNode()));
-        response.setTotalDistance(calculateTotalDistance(path));
-        response.setPathEdges(getPathEdges(path));
-
-        return response;
+        return new DijkstraResult(path, distances.get(endNode));
     }
 
     /**
      * 为所有边计算拥堵系数
      */
-    /**
-     * 为所有边计算拥堵系数（优化版本 - 避免重复预测）
-     */
-
     private void calculateCongestionForEdges(int timePoint, double alpha) {
         Map<Integer, Double> nodeVolumeCache = new HashMap<>();
 
@@ -252,6 +328,59 @@ public class RoutePlannerService {
             edge.setWeight(congestion);
             edge.setCongestion(congestion);
         }
+    }
+
+    /**
+     * 重置边的权重为距离
+     */
+    private void resetEdgeWeightsToDistance() {
+        for (Edge edge : edges) {
+            edge.setWeight(edge.getDistance());
+        }
+    }
+
+    /**
+     * 计算路径的拥堵指数
+     */
+    private double calculatePathCongestion(List<Integer> path, int timePoint, double alpha) {
+        if (path.size() < 2) {
+            return 0.0;
+        }
+
+        double totalCongestion = 0.0;
+        Map<Integer, Double> nodeVolumeCache = new HashMap<>();
+
+        for (int i = 0; i < path.size() - 1; i++) {
+            int from = path.get(i);
+            int to = path.get(i + 1);
+
+            // 找到对应的边
+            Edge edge = findEdge(from, to);
+            if (edge != null) {
+                double flowFrom = nodeVolumeCache.computeIfAbsent(from,
+                        nodeId -> pythonModelService.predictVolume(nodeId, timePoint));
+                double flowTo = nodeVolumeCache.computeIfAbsent(to,
+                        nodeId -> pythonModelService.predictVolume(nodeId, timePoint));
+
+                double avgFlow = (flowFrom + flowTo) / 2.0;
+                double congestion = edge.getDistance() * (1 + alpha * avgFlow);
+                totalCongestion += congestion;
+            }
+        }
+
+        return totalCongestion;
+    }
+
+    /**
+     * 查找边
+     */
+    private Edge findEdge(int from, int to) {
+        for (Edge edge : edges) {
+            if (edge.getFrom() == from && edge.getTo() == to) {
+                return edge;
+            }
+        }
+        return null;
     }
 
     /**
@@ -277,14 +406,57 @@ public class RoutePlannerService {
             int to = path.get(i + 1);
 
             // 找到对应的边
-            for (Edge edge : edges) {
-                if (edge.getFrom() == from && edge.getTo() == to) {
-                    pathEdges.add(edge);
-                    break;
-                }
+            Edge edge = findEdge(from, to);
+            if (edge != null) {
+                pathEdges.add(edge);
             }
         }
         return pathEdges;
+    }
+
+    /**
+     * 估算行程时间（分钟）
+     */
+    private double estimateTravelTime(double distance, double congestion) {
+        // 基础速度: 30 km/h
+        double baseSpeed = 30.0;
+        // 拥堵因子影响速度
+        double congestionFactor = congestion / distance;
+        double adjustedSpeed = baseSpeed / (1 + congestionFactor * 0.1);
+        // 返回分钟
+        return (distance / adjustedSpeed) * 60;
+    }
+
+    /**
+     * 构建比较信息
+     */
+    private String buildComparisonMessage(RouteResponse.PathResult optimal, RouteResponse.PathResult shortest) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("\n=== 路径比较 ===");
+
+        sb.append(String.format("\n最优路径: %d个节点, 距离%.2fkm, 拥堵指数%.2f, 预计时间%.1f分钟",
+                optimal.getPath().size(), optimal.getTotalDistance(),
+                optimal.getTotalCongestion(), optimal.getTravelTime()));
+
+        sb.append(String.format("\n最短路径: %d个节点, 距离%.2fkm, 拥堵指数%.2f, 预计时间%.1f分钟",
+                shortest.getPath().size(), shortest.getTotalDistance(),
+                shortest.getTotalCongestion(), shortest.getTravelTime()));
+
+        // 计算差异
+        double distanceDiff = optimal.getTotalDistance() - shortest.getTotalDistance();
+        double timeDiff = optimal.getTravelTime() - shortest.getTravelTime();
+
+        sb.append(String.format("\n距离差异: %.2fkm, 时间差异: %.1f分钟", distanceDiff, timeDiff));
+
+        if (timeDiff < 0) {
+            sb.append("\n推荐: 最优路径更快");
+        } else if (timeDiff > 5) {
+            sb.append("\n推荐: 最短路径更快");
+        } else {
+            sb.append("\n推荐: 两条路径时间相近");
+        }
+
+        return sb.toString();
     }
 
     /**
@@ -299,5 +471,18 @@ public class RoutePlannerService {
      */
     public List<Edge> getAllEdges() {
         return edges;
+    }
+
+    /**
+     * Dijkstra 算法结果类
+     */
+    private static class DijkstraResult {
+        final List<Integer> path;
+        final double totalWeight;
+
+        DijkstraResult(List<Integer> path, double totalWeight) {
+            this.path = path;
+            this.totalWeight = totalWeight;
+        }
     }
 }
