@@ -26,6 +26,14 @@ route:
     node-data-file: classpath:data/sensors北交周边.csv
     edge-data-file: classpath:data/edges.csv
 
+
+qianfan:
+  api:
+    key: bce-v3/ALTAK-Bam3hWPRJuiNYrY8XvndJ/caecbe6ef493ed8752b2dcbacf71e0e855b3c8bf
+    url: https://qianfan.baidubce.com/v2/chat/completions
+
+
+
 # 日志配置
 logging:
   level:
