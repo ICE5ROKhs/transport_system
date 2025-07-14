@@ -1,47 +1,123 @@
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'; // 导入 useRouter
+import { useRouter } from 'vue-router'
 
 const router = useRouter()
-// 控制当前显示的是登录表单还是注册表单
 const isLogin = ref(true)
 
-// 登录表单的数据
+// 登录方式：'username' 或 'email'
+const loginBy = ref('username')
+
 const loginForm = ref({
-  username: '',
+  identifier: '', // 用于用户名或邮箱
   password: ''
 })
 
-// 注册表单的数据
 const registerForm = ref({
-  name: '',
   username: '',
   password: '',
   email: '',
-  phone: '',
-  code: ''
+  verificationCode: ''
 })
 
-// 处理登录逻辑
-const handleLogin = () => {
-    console.log('登录信息:', loginForm.value)
-  // 在这里添加跳转逻辑
-  router.push('/main')
+const countdown = ref(0)
+let timer = null
+
+// 发送验证码
+const getVerificationCode = async () => {
+  if (countdown.value > 0) return
+
+  if (!registerForm.value.email) {
+    alert('请输入邮箱地址')
+    return
+  }
+
+  try {
+    const response = await fetch('/api/auth/send-code', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email: registerForm.value.email })
+    })
+
+    const resultText = await response.text()
+
+    if (response.ok) {
+      alert(resultText)
+      // 开始60秒倒计时
+      countdown.value = 60
+      timer = setInterval(() => {
+        countdown.value--
+        if (countdown.value <= 0) {
+          clearInterval(timer)
+        }
+      }, 1000)
+    } else {
+      alert(`发送失败: ${resultText}`)
+    }
+  } catch (error) {
+    console.error('发送验证码时出错:', error)
+    alert('发送验证码时发生网络错误')
+  }
 }
 
-// 处理注册逻辑
-const handleRegister = () => {
-  console.log('处理注册:', registerForm.value)
-  // 在这里添加实际的注册请求逻辑
-  alert('注册成功！(模拟)')
+// 处理登录
+const handleLogin = async () => {
+  const url = loginBy.value === 'username' ? '/api/auth/login_by_username' : '/api/auth/login'
+  const payload = loginBy.value === 'username'
+    ? { username: loginForm.value.identifier, password: loginForm.value.password }
+    : { email: loginForm.value.identifier, password: loginForm.value.password }
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('username', data.username)
+      router.push('/main')
+    } else {
+      const errorText = await response.text()
+      alert(`登录失败: ${errorText}`)
+    }
+  } catch (error) {
+    console.error('登录时出错:', error)
+    alert('登录时发生网络错误')
+  }
 }
 
-// 获取验证码的逻辑
-const getVerificationCode = () => {
-  console.log('获取验证码，手机号:', registerForm.value.phone)
-  // 在这里添加调用后端接口发送验证码的逻辑
-  alert('验证码已发送 (模拟)')
+// 处理注册
+const handleRegister = async () => {
+  try {
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(registerForm.value)
+    })
+
+    const resultText = await response.text()
+
+    if (response.ok) {
+      alert(resultText)
+      isLogin.value = true // 注册成功后切换到登录页
+    } else {
+      alert(`注册失败: ${resultText}`)
+    }
+  } catch (error) {
+    console.error('注册时出错:', error)
+    alert('注册时发生网络错误')
+  }
 }
+
 </script>
 
 <template>
@@ -51,8 +127,16 @@ const getVerificationCode = () => {
         <!-- 登录表单 -->
         <form v-if="isLogin" @submit.prevent="handleLogin">
           <h2>用户登录</h2>
+          <div class="login-toggle">
+            <label>
+              <input type="radio" v-model="loginBy" value="username"> 用户名
+            </label>
+            <label>
+              <input type="radio" v-model="loginBy" value="email"> 邮箱
+            </label>
+          </div>
           <div class="input-group">
-            <input type="text" v-model="loginForm.username" placeholder="用户名" required>
+            <input type="text" v-model="loginForm.identifier" :placeholder="loginBy === 'username' ? '用户名' : '邮箱'" required>
           </div>
           <div class="input-group">
             <input type="password" v-model="loginForm.password" placeholder="密码" required>
@@ -67,23 +151,19 @@ const getVerificationCode = () => {
         <form v-else @submit.prevent="handleRegister">
           <h2>用户注册</h2>
           <div class="input-group">
-            <input type="text" v-model="registerForm.name" placeholder="姓名" required>
+            <input type="text" v-model="registerForm.username" placeholder="用户名 (长度3-20)" required>
           </div>
           <div class="input-group">
-            <input type="text" v-model="registerForm.username" placeholder="用户名" required>
-          </div>
-          <div class="input-group">
-            <input type="password" v-model="registerForm.password" placeholder="密码" required>
+            <input type="password" v-model="registerForm.password" placeholder="密码 (不少于6位)" required>
           </div>
           <div class="input-group">
             <input type="email" v-model="registerForm.email" placeholder="邮箱" required>
           </div>
-          <div class="input-group">
-            <input type="tel" v-model="registerForm.phone" placeholder="电话号码" required>
-          </div>
           <div class="input-group verification-code">
-            <input type="text" v-model="registerForm.code" placeholder="验证码" required>
-            <button type="button" @click="getVerificationCode" class="btn-code">获取验证码</button>
+            <input type="text" v-model="registerForm.verificationCode" placeholder="验证码" required>
+            <button type="button" @click="getVerificationCode" class="btn-code" :disabled="countdown > 0">
+              {{ countdown > 0 ? `${countdown}秒后重试` : '获取验证码' }}
+            </button>
           </div>
           <button type="submit" class="btn">注册</button>
           <p class="switch-form">
@@ -117,12 +197,24 @@ const getVerificationCode = () => {
   width: 100%;
   max-width: 400px;
   border: 1px solid rgba(255, 255, 255, 0.3);
-  text-align: center; /* 确保内容居中 */
+  text-align: center;
 }
 
 h2 {
   text-align: center;
   margin-bottom: 1.5rem;
+  color: #333;
+}
+
+.login-toggle {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.login-toggle label {
+  cursor: pointer;
   color: #333;
 }
 
@@ -182,5 +274,11 @@ input {
   cursor: pointer;
   border-top-right-radius: 4px;
   border-bottom-right-radius: 4px;
+  white-space: nowrap;
+}
+
+.btn-code:disabled {
+  background-color: #e9ecef;
+  cursor: not-allowed;
 }
 </style>
