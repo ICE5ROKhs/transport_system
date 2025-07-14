@@ -160,13 +160,6 @@ public class RouteResponse {
             this.pathEdges = pathEdges;
         }
 
-        public String getPathType() {
-            return pathType;
-        }
-
-        public void setPathType(String pathType) {
-            this.pathType = pathType;
-        }
 
         public double getTravelTime() {
             return travelTime;
