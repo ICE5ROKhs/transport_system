@@ -8,7 +8,7 @@ app = Flask(__name__)
 model_path = "models/node_volume_model.json"
 model = xgb.XGBRegressor()
 model.load_model(model_path)
-print("✅ 模型已加载")
+print(" 模型已加载")
 
 @app.route("/predict", methods=["GET", "POST"])
 def predict_volume():

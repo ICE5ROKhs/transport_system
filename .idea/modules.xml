@@ -2,7 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/transport_system.iml" filepath="$PROJECT_DIR$/.idea/transport_system.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mode1/mode1.iml" filepath="$PROJECT_DIR$/mode1/mode1.iml" />
+      <module fileurl="file://$PROJECT_DIR$/java/backend/transport-system.iml" filepath="$PROJECT_DIR$/java/backend/transport-system.iml" />
     </modules>
   </component>
 </project>
