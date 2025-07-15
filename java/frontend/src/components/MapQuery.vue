@@ -64,6 +64,76 @@
       </div>
     </div>
     
+    <!-- AI助手面板 -->
+    <div class="ai-assistant">
+      <div class="ai-header">
+        <h4>🤖 AI智能助手</h4>
+        <div class="ai-role-selector">
+          <select v-model="selectedRole" @change="changeRole" class="role-select">
+            <option value="traffic">交通专家</option>
+            <option value="tourist">旅游向导</option>
+            <option value="business">商务顾问</option>
+            <option value="student">学生助手</option>
+            <option value="elderly">老年关怀</option>
+          </select>
+        </div>
+      </div>
+      
+      <!-- 对话区域 -->
+      <div class="chat-container">
+        <div class="chat-messages" ref="chatContainer">
+          <div 
+            v-for="(message, index) in chatMessages" 
+            :key="index" 
+            class="message"
+            :class="message.type"
+          >
+            <div class="message-avatar">
+              {{ message.type === 'user' ? '👤' : '🤖' }}
+            </div>
+            <div class="message-content">
+              <div class="message-text">{{ message.text }}</div>
+              <div class="message-time">{{ formatMessageTime(message.time) }}</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 输入区域 -->
+        <div class="chat-input">
+          <input 
+            v-model="userInput" 
+            @keyup.enter="sendMessage"
+            placeholder="输入您的问题..."
+            class="message-input"
+            :disabled="aiLoading"
+          >
+          <button 
+            @click="sendMessage" 
+            class="send-btn"
+            :disabled="!userInput.trim() || aiLoading"
+          >
+            {{ aiLoading ? '发送中...' : '发送' }}
+          </button>
+        </div>
+      </div>
+      
+      <!-- 快捷问题 -->
+      <div class="quick-questions">
+        <h5>💡 快捷问题</h5>
+        <div class="question-buttons">
+          <button 
+            v-for="question in getQuickQuestions()" 
+            :key="question"
+            @click="askQuickQuestion(question)"
+            class="quick-btn"
+            :disabled="aiLoading"
+          >
+            {{ question }}
+          </button>
+        </div>
+      </div>
+    </div>
+    
     <!-- 错误提示 -->
     <div v-if="error" class="error-toast">
       <span>{{ error }}</span>
@@ -73,9 +143,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import AMapLoader from '@amap/amap-jsapi-loader'
-import { dataAPI } from '../services/api.js'
+import { dataAPI, aiAPI } from '../services/api.js'
 
 // 地图相关
 let map = null
@@ -94,6 +164,13 @@ const lastUpdated = ref(null)
 // 数据
 const heatmapData = ref([])
 const congestionStats = ref(null)
+
+// AI助手相关
+const selectedRole = ref('traffic')
+const chatMessages = ref([])
+const userInput = ref('')
+const aiLoading = ref(false)
+const chatContainer = ref(null)
 
 // 配置安全密钥
 window._AMapSecurityConfig = {
@@ -145,6 +222,10 @@ onMounted(() => {
     console.error("地图加载失败：", e)
     error.value = '地图加载失败，请刷新页面重试'
   })
+  
+  // 初始化AI助手
+  const config = roleConfigs[selectedRole.value]
+  addMessage('assistant', config.greeting)
 })
 
 /**
@@ -385,6 +466,215 @@ const clearError = () => {
 }
 
 /**
+ * AI助手相关方法
+ */
+
+// 角色配置
+const roleConfigs = {
+  traffic: {
+    name: '交通专家',
+    greeting: '您好！我是交通专家，可以为您分析交通状况、提供路线建议和出行时间预测。请问有什么可以帮助您的吗？',
+    quickQuestions: [
+      '当前交通状况如何？',
+      '推荐最佳出行路线',
+      '预测到达时间',
+      '避开拥堵路段'
+    ]
+  },
+  tourist: {
+    name: '旅游向导',
+    greeting: '您好！我是旅游向导，可以为您推荐景点、规划旅游路线和提供出行建议。请问您想去哪里游玩呢？',
+    quickQuestions: [
+      '推荐热门景点',
+      '规划一日游路线',
+      '交通出行建议',
+      '景点周边信息'
+    ]
+  },
+  business: {
+    name: '商务顾问',
+    greeting: '您好！我是商务顾问，可以为您提供商务出行建议、会议地点推荐和交通时间规划。请问有什么商务需求吗？',
+    quickQuestions: [
+      '商务出行建议',
+      '会议地点推荐',
+      '交通时间规划',
+      '商务区信息'
+    ]
+  },
+  student: {
+    name: '学生助手',
+    greeting: '您好！我是学生助手，可以为您提供校园周边信息、学习地点推荐和出行建议。请问需要什么帮助吗？',
+    quickQuestions: [
+      '校园周边信息',
+      '学习地点推荐',
+      '出行安全建议',
+      '学生优惠信息'
+    ]
+  },
+  elderly: {
+    name: '老年关怀',
+    greeting: '您好！我是老年关怀助手，可以为您提供适合老年人的出行建议、无障碍设施信息和安全出行指导。请问需要什么帮助吗？',
+    quickQuestions: [
+      '无障碍设施查询',
+      '安全出行建议',
+      '适合老年人的路线',
+      '医疗设施位置'
+    ]
+  }
+}
+
+/**
+ * 切换AI角色
+ */
+const changeRole = () => {
+  const config = roleConfigs[selectedRole.value]
+  addMessage('assistant', `已切换到${config.name}模式。${config.greeting}`)
+}
+
+/**
+ * 获取当前角色的快捷问题
+ */
+const getQuickQuestions = () => {
+  return roleConfigs[selectedRole.value]?.quickQuestions || []
+}
+
+/**
+ * 添加消息到对话
+ */
+const addMessage = (type, text) => {
+  chatMessages.value.push({
+    type,
+    text,
+    time: new Date()
+  })
+  
+  // 滚动到底部
+  nextTick(() => {
+    if (chatContainer.value) {
+      chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+    }
+  })
+}
+
+/**
+ * 发送消息
+ */
+const sendMessage = async () => {
+  const message = userInput.value.trim()
+  if (!message || aiLoading.value) return
+  
+  // 添加用户消息
+  addMessage('user', message)
+  userInput.value = ''
+  
+  // 显示AI正在输入
+  aiLoading.value = true
+  
+  try {
+    // 模拟AI响应
+    const response = await generateAIResponse(message)
+    addMessage('assistant', response)
+  } catch (err) {
+    addMessage('assistant', '抱歉，我现在无法回答您的问题，请稍后再试。')
+    console.error('AI响应生成失败:', err)
+  } finally {
+    aiLoading.value = false
+  }
+}
+
+/**
+ * 生成AI响应
+ */
+const generateAIResponse = async (message) => {
+  try {
+    // 尝试调用后端AI API
+    const response = await aiAPI.sendMessage({
+      message,
+      role: selectedRole.value,
+      context: {
+        heatmapData: heatmapData.value.length > 0,
+        congestionData: congestionStats.value !== null,
+        currentTime: new Date().toISOString()
+      }
+    })
+    
+    return response.response || response.message || '抱歉，我现在无法回答您的问题。'
+  } catch (error) {
+    console.warn('AI API调用失败，使用本地响应:', error)
+    
+    // 如果API调用失败，使用本地响应
+    const role = roleConfigs[selectedRole.value]
+    const lowerMessage = message.toLowerCase()
+    
+    // 根据角色和消息内容生成响应
+    switch (selectedRole.value) {
+      case 'traffic':
+        if (lowerMessage.includes('交通') || lowerMessage.includes('拥堵')) {
+          return '根据当前数据分析，主要道路通行状况良好，建议避开早晚高峰时段出行。您可以使用热力图查看实时交通状况。'
+        } else if (lowerMessage.includes('路线') || lowerMessage.includes('路径')) {
+          return '我可以为您推荐最优路线。请告诉我您的起点和终点，我会结合实时交通数据为您规划最佳路径。'
+        } else if (lowerMessage.includes('时间') || lowerMessage.includes('到达')) {
+          return '到达时间会根据当前交通状况动态调整。建议您查看实时路况，并预留一些缓冲时间。'
+        }
+        break
+        
+      case 'tourist':
+        if (lowerMessage.includes('景点') || lowerMessage.includes('游玩')) {
+          return '我推荐您访问故宫、天安门广场、颐和园等著名景点。建议提前查看交通状况，合理安排游览时间。'
+        } else if (lowerMessage.includes('路线') || lowerMessage.includes('规划')) {
+          return '我可以为您规划一日游路线。请告诉我您的兴趣偏好和可用时间，我会为您制定详细的游览计划。'
+        }
+        break
+        
+      case 'business':
+        if (lowerMessage.includes('商务') || lowerMessage.includes('会议')) {
+          return '商务区主要集中在CBD、金融街等区域。建议提前规划路线，避开交通高峰，确保准时到达。'
+        } else if (lowerMessage.includes('推荐') || lowerMessage.includes('地点')) {
+          return '我推荐您考虑国贸、三里屯、望京等商务区，这些区域交通便利，配套设施完善。'
+        }
+        break
+        
+      case 'student':
+        if (lowerMessage.includes('校园') || lowerMessage.includes('学习')) {
+          return '校园周边通常有图书馆、咖啡厅等学习场所。建议选择交通便利、环境安静的地点进行学习。'
+        } else if (lowerMessage.includes('安全') || lowerMessage.includes('出行')) {
+          return '学生出行要注意安全，建议结伴而行，选择安全的交通方式，避免夜间单独出行。'
+        }
+        break
+        
+      case 'elderly':
+        if (lowerMessage.includes('无障碍') || lowerMessage.includes('设施')) {
+          return '主要公共场所都设有无障碍设施，包括轮椅通道、电梯等。建议提前了解目的地设施情况。'
+        } else if (lowerMessage.includes('安全') || lowerMessage.includes('出行')) {
+          return '老年人出行建议选择平坦道路，避开拥挤路段，必要时可以寻求他人帮助。建议携带紧急联系信息。'
+        }
+        break
+    }
+    
+    // 默认响应
+    return `作为${role.name}，我会根据您的需求提供专业建议。请详细描述您的问题，我会尽力帮助您。`
+  }
+}
+
+/**
+ * 快捷问题
+ */
+const askQuickQuestion = (question) => {
+  userInput.value = question
+  sendMessage()
+}
+
+/**
+ * 格式化消息时间
+ */
+const formatMessageTime = (date) => {
+  return date.toLocaleTimeString('zh-CN', { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  })
+}
+
+/**
  * 组件卸载时清理资源
  */
 onUnmounted(() => {
@@ -497,6 +787,198 @@ onUnmounted(() => {
   box-shadow: 0 4px 20px rgba(0,0,0,0.15);
   z-index: 10;
   min-width: 250px;
+}
+
+/* AI助手样式 */
+.ai-assistant {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  z-index: 10;
+  width: 350px;
+  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #007bff;
+}
+
+.ai-header h4 {
+  margin: 0;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.role-select {
+  padding: 5px 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background: white;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.chat-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  max-height: 250px;
+}
+
+.message {
+  display: flex;
+  margin-bottom: 15px;
+  gap: 10px;
+}
+
+.message.user {
+  flex-direction: row-reverse;
+}
+
+.message-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: #e9ecef;
+  flex-shrink: 0;
+}
+
+.message.user .message-avatar {
+  background: #007bff;
+  color: white;
+}
+
+.message-content {
+  flex: 1;
+  max-width: 70%;
+}
+
+.message.user .message-content {
+  text-align: right;
+}
+
+.message-text {
+  background: white;
+  padding: 8px 12px;
+  border-radius: 15px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  word-wrap: break-word;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.message.user .message-text {
+  background: #007bff;
+  color: white;
+}
+
+.message-time {
+  font-size: 0.7rem;
+  color: #666;
+  margin-top: 4px;
+}
+
+.chat-input {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.message-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.message-input:focus {
+  border-color: #007bff;
+}
+
+.send-btn {
+  padding: 8px 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.3s;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.send-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.quick-questions {
+  border-top: 1px solid #eee;
+  padding-top: 15px;
+}
+
+.quick-questions h5 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.question-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.quick-btn {
+  padding: 4px 8px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.quick-btn:hover:not(:disabled) {
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.quick-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .congestion-stats h4 {
@@ -666,13 +1148,31 @@ onUnmounted(() => {
 
 @media (max-width: 768px) {
   .layer-control,
-  .congestion-stats {
+  .congestion-stats,
+  .ai-assistant {
     padding: 15px;
     min-width: 180px;
   }
   
+  .ai-assistant {
+    width: 300px;
+    max-height: 500px;
+  }
+  
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .chat-messages {
+    max-height: 200px;
+  }
+  
+  .question-buttons {
+    flex-direction: column;
+  }
+  
+  .quick-btn {
+    text-align: center;
   }
 }
 </style>

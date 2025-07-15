@@ -23,7 +23,11 @@ const registerForm = ref({
   username: '',
   password: '',
   email: '',
-  verificationCode: ''
+  verificationCode: '',
+  userName: '',
+  phone: '',
+  age: null,
+  sex: ''
 })
 
 /**
@@ -255,6 +259,51 @@ onUnmounted(() => {
               {{ countdown > 0 ? `${countdown}秒后重试` : '获取验证码' }}
             </button>
           </div>
+          
+          <!-- 个人信息字段 -->
+          <div class="input-group">
+            <input 
+              type="text" 
+              v-model="registerForm.userName" 
+              placeholder="真实姓名 (2-10个字符)" 
+              required
+              :disabled="authStore.loading"
+            >
+          </div>
+          <div class="input-group">
+            <input 
+              type="tel" 
+              v-model="registerForm.phone" 
+              placeholder="手机号 (11位数字)" 
+              required
+              :disabled="authStore.loading"
+            >
+          </div>
+          <div class="input-group">
+            <input 
+              type="number" 
+              v-model="registerForm.age" 
+              placeholder="年龄 (1-150)" 
+              min="1" 
+              max="150"
+              required
+              :disabled="authStore.loading"
+            >
+          </div>
+          <div class="input-group">
+            <select 
+              v-model="registerForm.sex" 
+              required
+              :disabled="authStore.loading"
+              class="form-select"
+            >
+              <option value="">请选择性别</option>
+              <option value="男">男</option>
+              <option value="女">女</option>
+              <option value="其他">其他</option>
+            </select>
+          </div>
+          
           <button type="submit" class="btn" :disabled="authStore.loading">
             {{ authStore.loading ? '注册中...' : '注册' }}
           </button>
@@ -392,6 +441,44 @@ input:disabled {
   border-bottom-right-radius: 4px;
   white-space: nowrap;
   transition: background-color 0.3s;
+}
+
+.form-select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+  transition: border-color 0.3s;
+  background-color: white;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.form-select:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  border: 1px solid #f5c6cb;
+}
+
+.success-message {
+  background-color: #d4edda;
+  color: #155724;
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  border: 1px solid #c3e6cb;
 }
 
 .btn-code:hover:not(:disabled) {

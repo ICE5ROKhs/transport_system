@@ -230,4 +230,29 @@ export const utils = {
   getCurrentUsername() {
     return localStorage.getItem('username');
   }
+};
+
+// AI助手相关API
+export const aiAPI = {
+  /**
+   * 发送消息给AI助手
+   * @param {Object} messageData - 消息数据
+   * @returns {Promise<Object>} AI响应
+   */
+  async sendMessage(messageData) {
+    const { data } = await apiRequest('/api/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify(messageData)
+    });
+    return data;
+  },
+
+  /**
+   * 获取AI助手状态
+   * @returns {Promise<Object>} AI状态信息
+   */
+  async getStatus() {
+    const { data } = await apiRequest('/api/ai/status');
+    return data;
+  }
 }; 

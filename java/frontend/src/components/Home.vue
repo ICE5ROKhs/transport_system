@@ -5,6 +5,12 @@
       <p>在这里，您可以一览全局，轻松管理交通信息。</p>
     </div>
 
+    <!-- 当前时间显示 -->
+    <div class="time-display">
+      <div class="current-time">{{ currentTime }}</div>
+      <div class="current-date">{{ currentDate }}</div>
+    </div>
+
     <!-- 加载状态 -->
     <div v-if="loading" class="loading-container">
       <p class="loading-text">正在加载统计数据...</p>
@@ -59,9 +65,35 @@ const dashboardData = ref(null)
 const loading = ref(true)
 const error = ref(null)
 const lastUpdated = ref(null)
+const currentTime = ref('')
+const currentDate = ref('')
 
 // 自动刷新定时器
 let refreshTimer = null
+let timeTimer = null
+
+/**
+ * 更新当前时间显示
+ */
+const updateCurrentTime = () => {
+  const now = new Date()
+  
+  // 格式化时间 (HH:MM:SS)
+  currentTime.value = now.toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
+  
+  // 格式化日期 (YYYY年MM月DD日 星期X)
+  currentDate.value = now.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long'
+  })
+}
 
 /**
  * 获取仪表盘数据
@@ -120,6 +152,14 @@ const formatTime = (date) => {
  * 组件挂载时获取数据并设置自动刷新
  */
 onMounted(() => {
+  // 立即更新一次时间
+  updateCurrentTime()
+  
+  // 设置时间更新定时器（每秒更新）
+  timeTimer = setInterval(() => {
+    updateCurrentTime()
+  }, 1000)
+  
   fetchDashboardData()
   
   // 设置5分钟自动刷新
@@ -134,6 +174,9 @@ onMounted(() => {
 onUnmounted(() => {
   if (refreshTimer) {
     clearInterval(refreshTimer)
+  }
+  if (timeTimer) {
+    clearInterval(timeTimer)
   }
 })
 </script>
@@ -153,7 +196,7 @@ onUnmounted(() => {
 
 .welcome-banner {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 30px;
 }
 
 .welcome-banner h1 {
@@ -166,6 +209,35 @@ onUnmounted(() => {
   font-size: 1.2rem;
   opacity: 0.9;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* 时间显示样式 */
+.time-display {
+  text-align: center;
+  margin-bottom: 40px;
+  padding: 30px;
+  background-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(15px);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.current-time {
+  font-size: 4rem;
+  font-weight: bold;
+  margin-bottom: 10px;
+  text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 2px;
+}
+
+.current-date {
+  font-size: 1.5rem;
+  opacity: 0.9;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .loading-container, .error-container {
@@ -289,6 +361,20 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
+  .time-display {
+    padding: 20px;
+    margin-bottom: 30px;
+  }
+  
+  .current-time {
+    font-size: 2.5rem;
+    letter-spacing: 1px;
+  }
+  
+  .current-date {
+    font-size: 1.2rem;
+  }
+  
   .metrics-grid {
     grid-template-columns: 1fr;
     gap: 20px;
