@@ -16,12 +16,6 @@
       <p class="loading-text">正在加载统计数据...</p>
     </div>
 
-    <!-- 错误状态 -->
-    <div v-else-if="error" class="error-container">
-      <p class="error-text">{{ error }}</p>
-      <button @click="fetchDashboardData" class="retry-button">重新加载</button>
-    </div>
-
     <!-- 统计数据展示 -->
     <div v-else class="metrics-grid">
       <div class="metric-card">
@@ -49,7 +43,7 @@
     <!-- 数据更新时间 -->
     <div v-if="dashboardData && lastUpdated" class="update-info">
       <p>数据更新时间: {{ formatTime(lastUpdated) }}</p>
-      <button @click="fetchDashboardData" class="refresh-button" :disabled="loading">
+      <button @click="refreshData" class="refresh-button" :disabled="loading">
         {{ loading ? '更新中...' : '手动刷新' }}
       </button>
     </div>
@@ -59,11 +53,11 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { dataAPI } from '../services/api.js'
+import { handleApiError, showSuccess } from '../utils/errorHandler.js'
 
 // 响应式数据
 const dashboardData = ref(null)
 const loading = ref(true)
-const error = ref(null)
 const lastUpdated = ref(null)
 const currentTime = ref('')
 const currentDate = ref('')
@@ -100,7 +94,6 @@ const updateCurrentTime = () => {
  */
 const fetchDashboardData = async () => {
   loading.value = true
-  error.value = null
   
   try {
     const response = await dataAPI.getDashboardStats()
@@ -108,8 +101,7 @@ const fetchDashboardData = async () => {
     lastUpdated.value = new Date()
     console.log('仪表盘数据获取成功:', response)
   } catch (err) {
-    error.value = err.message || '获取数据失败，请稍后重试'
-    console.error('获取仪表盘数据失败:', err)
+    handleApiError(err, '获取仪表盘数据')
   } finally {
     loading.value = false
   }
@@ -146,6 +138,14 @@ const formatTime = (date) => {
     minute: '2-digit',
     second: '2-digit'
   })
+}
+
+/**
+ * 手动刷新数据
+ */
+const refreshData = async () => {
+  await fetchDashboardData()
+  showSuccess('数据更新成功', '仪表盘数据已刷新')
 }
 
 /**

@@ -16,7 +16,7 @@
           :disabled="loading"
         >
         <label for="heatmap-toggle">交通热力图</label>
-        <span v-if="loading && loadingType === 'heatmap'" class="loading-indicator">加载中...</span>
+        <span v-if="loading && loadingType === '热力图数据'" class="loading-indicator">加载中...</span>
       </div>
       
       <!-- 拥挤度控制 -->
@@ -29,7 +29,7 @@
           :disabled="loading"
         >
         <label for="congestion-toggle">拥挤度分析</label>
-        <span v-if="loading && loadingType === 'congestion'" class="loading-indicator">加载中...</span>
+        <span v-if="loading && loadingType === '拥挤度数据'" class="loading-indicator">加载中...</span>
       </div>
       
       <!-- 刷新按钮 -->
@@ -69,7 +69,7 @@
       <div class="ai-header">
         <h4>🤖 AI智能助手</h4>
         <div class="ai-role-selector">
-          <select v-model="selectedRole" @change="changeRole" class="role-select">
+          <select v-model="selectedRole" @change="switchRole(selectedRole)" class="role-select">
             <option value="traffic">交通专家</option>
             <option value="tourist">旅游向导</option>
             <option value="business">商务顾问</option>
@@ -133,12 +133,6 @@
         </div>
       </div>
     </div>
-    
-    <!-- 错误提示 -->
-    <div v-if="error" class="error-toast">
-      <span>{{ error }}</span>
-      <button @click="clearError" class="close-btn">×</button>
-    </div>
   </div>
 </template>
 
@@ -146,6 +140,7 @@
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import AMapLoader from '@amap/amap-jsapi-loader'
 import { dataAPI, aiAPI } from '../services/api.js'
+import { handleApiError, showSuccess, handleMapError } from '../utils/errorHandler.js'
 
 // 地图相关
 let map = null
@@ -158,7 +153,6 @@ const showHeatmap = ref(false)
 const showCongestion = ref(false)
 const loading = ref(false)
 const loadingType = ref('')
-const error = ref(null)
 const lastUpdated = ref(null)
 
 // 数据
@@ -220,7 +214,7 @@ onMounted(() => {
     console.log('地图初始化完成')
   }).catch(e => {
     console.error("地图加载失败：", e)
-    error.value = '地图加载失败，请刷新页面重试'
+    handleMapError(e)
   })
   
   // 初始化AI助手
@@ -233,24 +227,15 @@ onMounted(() => {
  */
 const fetchHeatmapData = async () => {
   loading.value = true
-  loadingType.value = 'heatmap'
-  error.value = null
+  loadingType.value = '热力图数据'
   
   try {
     const response = await dataAPI.getHeatmapData()
-    heatmapData.value = response.data.map(point => ({
-      lng: point.lng,
-      lat: point.lat,
-      count: Math.round(point.intensity * 100) // 将强度转换为热力图所需的count值
-    }))
-    
-    console.log('热力图数据获取成功:', heatmapData.value)
+    heatmapData.value = response.data || []
     lastUpdated.value = new Date()
-    
+    console.log('热力图数据获取成功:', response)
   } catch (err) {
-    error.value = '获取热力图数据失败: ' + (err.message || '网络错误')
-    console.error('获取热力图数据失败:', err)
-    showHeatmap.value = false
+    handleApiError(err, '获取热力图数据')
   } finally {
     loading.value = false
     loadingType.value = ''
@@ -262,20 +247,15 @@ const fetchHeatmapData = async () => {
  */
 const fetchCongestionData = async () => {
   loading.value = true
-  loadingType.value = 'congestion'
-  error.value = null
+  loadingType.value = '拥挤度数据'
   
   try {
     const response = await dataAPI.getCongestionData()
     congestionStats.value = response.data
-    
-    console.log('拥挤度数据获取成功:', congestionStats.value)
     lastUpdated.value = new Date()
-    
+    console.log('拥挤度数据获取成功:', response)
   } catch (err) {
-    error.value = '获取拥挤度数据失败: ' + (err.message || '网络错误')
-    console.error('获取拥挤度数据失败:', err)
-    showCongestion.value = false
+    handleApiError(err, '获取拥挤度数据')
   } finally {
     loading.value = false
     loadingType.value = ''
@@ -285,34 +265,60 @@ const fetchCongestionData = async () => {
 /**
  * 切换热力图显示
  */
-const toggleHeatmap = async () => {
+const toggleHeatmap = () => {
   if (showHeatmap.value) {
     if (heatmapData.value.length === 0) {
-      await fetchHeatmapData()
-    }
-    
-    if (heatmapData.value.length > 0) {
-      const maxCount = Math.max(...heatmapData.value.map(item => item.count))
-      heatmap.setDataSet({ 
-        data: heatmapData.value, 
-        max: maxCount 
-      })
-      heatmap.show()
+      fetchHeatmapData()
+    } else {
+      showHeatmapData()
     }
   } else {
-    heatmap.hide()
+    hideHeatmapData()
+  }
+}
+
+/**
+ * 显示热力图数据
+ */
+const showHeatmapData = () => {
+  if (!heatmap || heatmapData.value.length === 0) return
+  
+  const heatmapPoints = heatmapData.value.map(point => ({
+    lng: point.lng,
+    lat: point.lat,
+    count: point.intensity
+  }))
+  
+  heatmap.setDataSet({
+    data: heatmapPoints,
+    max: Math.max(...heatmapData.value.map(p => p.intensity))
+  })
+  
+  showSuccess('热力图已显示', '交通热度分布数据已加载')
+}
+
+/**
+ * 隐藏热力图数据
+ */
+const hideHeatmapData = () => {
+  if (heatmap) {
+    heatmap.setDataSet({
+      data: [],
+      max: 0
+    })
   }
 }
 
 /**
  * 切换拥挤度显示
  */
-const toggleCongestion = async () => {
+const toggleCongestion = () => {
   if (showCongestion.value) {
     if (!congestionStats.value) {
-      await fetchCongestionData()
+      fetchCongestionData()
+    } else {
+      showCongestionMarkers()
     }
-    showCongestionMarkers()
   } else {
     hideCongestionMarkers()
   }
@@ -322,23 +328,15 @@ const toggleCongestion = async () => {
  * 显示拥挤度标记
  */
 const showCongestionMarkers = () => {
-  if (!congestionStats.value || !map) return
+  if (!map || !congestionStats.value) return
   
-  // 清除已有标记
   hideCongestionMarkers()
   
-  // 模拟在地图上显示拥挤度区域标记
-  const regions = [
-    { level: '畅通', lng: 116.39, lat: 39.90, value: 25.5 },
-    { level: '缓慢', lng: 116.41, lat: 39.91, value: 35.2 },
-    { level: '拥堵', lng: 116.40, lat: 39.89, value: 28.8 },
-    { level: '严重拥堵', lng: 116.42, lat: 39.92, value: 10.5 }
-  ]
-  
-  regions.forEach(region => {
+  // 创建拥挤度标记
+  congestionStats.value.regions.forEach(region => {
     const marker = new AMap.Marker({
       position: [region.lng, region.lat],
-      content: createCongestionMarkerContent(region),
+      content: createCongestionMarker(region.level, region.value),
       offset: new AMap.Pixel(-15, -15)
     })
     
@@ -349,6 +347,8 @@ const showCongestionMarkers = () => {
     marker.setMap(map)
     congestionMarkers.push(marker)
   })
+  
+  showSuccess('拥挤度已显示', '各区域拥挤程度标记已加载')
 }
 
 /**
@@ -362,14 +362,32 @@ const hideCongestionMarkers = () => {
 }
 
 /**
- * 创建拥挤度标记内容
+ * 创建拥挤度标记
  */
-const createCongestionMarkerContent = (region) => {
-  const colorClass = getCongestionClass(region.level)
+const createCongestionMarker = (level, value) => {
+  const colors = {
+    '畅通': '#4CAF50',
+    '缓慢': '#FF9800',
+    '拥堵': '#F44336',
+    '严重拥堵': '#9C27B0'
+  }
+  
   return `
-    <div class="congestion-marker ${colorClass}">
-      <span class="marker-text">${region.level}</span>
-    </div>
+    <div class="congestion-marker" style="
+      background-color: ${colors[level] || '#999'};
+      color: white;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 0.7rem;
+      border: 2px solid white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    ">${value}%</div>
   `
 }
 
@@ -431,6 +449,8 @@ const refreshData = async () => {
     if (showCongestion.value) {
       showCongestionMarkers()
     }
+    
+    showSuccess('数据刷新成功', '所有数据已更新到最新状态')
   }
 }
 
@@ -459,76 +479,64 @@ const formatTime = (date) => {
 }
 
 /**
- * 清除错误信息
- */
-const clearError = () => {
-  error.value = null
-}
-
-/**
  * AI助手相关方法
  */
 
 // 角色配置
 const roleConfigs = {
   traffic: {
-    name: '交通专家',
-    greeting: '您好！我是交通专家，可以为您分析交通状况、提供路线建议和出行时间预测。请问有什么可以帮助您的吗？',
+    name: '交通助手',
+    greeting: '您好！我是您的专属交通助手，可以为您提供实时路况、路线规划、出行建议等服务。请问有什么可以帮助您的吗？',
     quickQuestions: [
       '当前交通状况如何？',
-      '推荐最佳出行路线',
-      '预测到达时间',
-      '避开拥堵路段'
+      '哪些路段比较拥堵？',
+      '如何避开拥堵路段？',
+      '推荐出行时间'
     ]
   },
-  tourist: {
-    name: '旅游向导',
-    greeting: '您好！我是旅游向导，可以为您推荐景点、规划旅游路线和提供出行建议。请问您想去哪里游玩呢？',
+  driver: {
+    name: '驾驶助手',
+    greeting: '您好！我是驾驶助手，专门为司机朋友提供专业的驾驶建议和路况信息。请问需要什么帮助？',
     quickQuestions: [
-      '推荐热门景点',
-      '规划一日游路线',
-      '交通出行建议',
-      '景点周边信息'
+      '最佳驾驶路线',
+      '停车位信息',
+      '加油站位置',
+      '驾驶安全提醒'
     ]
   },
-  business: {
-    name: '商务顾问',
-    greeting: '您好！我是商务顾问，可以为您提供商务出行建议、会议地点推荐和交通时间规划。请问有什么商务需求吗？',
+  passenger: {
+    name: '乘客助手',
+    greeting: '您好！我是乘客助手，可以为您提供公共交通信息、打车建议等服务。请问有什么需要帮助的？',
     quickQuestions: [
-      '商务出行建议',
-      '会议地点推荐',
-      '交通时间规划',
-      '商务区信息'
-    ]
-  },
-  student: {
-    name: '学生助手',
-    greeting: '您好！我是学生助手，可以为您提供校园周边信息、学习地点推荐和出行建议。请问需要什么帮助吗？',
-    quickQuestions: [
-      '校园周边信息',
-      '学习地点推荐',
-      '出行安全建议',
-      '学生优惠信息'
+      '公交线路查询',
+      '地铁换乘建议',
+      '打车费用估算',
+      '出行时间预测'
     ]
   },
   elderly: {
-    name: '老年关怀',
-    greeting: '您好！我是老年关怀助手，可以为您提供适合老年人的出行建议、无障碍设施信息和安全出行指导。请问需要什么帮助吗？',
+    name: '老年出行助手',
+    greeting: '您好！我是老年出行助手，专门为老年朋友提供贴心的出行服务。请问需要什么帮助？',
     quickQuestions: [
-      '无障碍设施查询',
+      '无障碍设施信息',
       '安全出行建议',
-      '适合老年人的路线',
-      '医疗设施位置'
+      '慢行路线推荐',
+      '紧急求助方式'
     ]
   }
 }
 
 /**
- * 切换AI角色
+ * 切换AI助手角色
  */
-const changeRole = () => {
-  const config = roleConfigs[selectedRole.value]
-  addMessage('assistant', `已切换到${config.name}模式。${config.greeting}`)
+const switchRole = (role) => {
+  selectedRole.value = role
+  chatMessages.value = []
+  
+  const config = roleConfigs[role]
+  addMessage('assistant', config.greeting)
+  
+  showSuccess('角色切换成功', `已切换到${config.name}模式`)
 }
 
 /**
@@ -571,12 +579,12 @@ const sendMessage = async () => {
   aiLoading.value = true
   
   try {
-    // 模拟AI响应
+    // 尝试调用后端AI API
     const response = await generateAIResponse(message)
     addMessage('assistant', response)
   } catch (err) {
+    handleApiError(err, 'AI对话')
     addMessage('assistant', '抱歉，我现在无法回答您的问题，请稍后再试。')
-    console.error('AI响应生成失败:', err)
   } finally {
     aiLoading.value = false
   }
@@ -618,27 +626,21 @@ const generateAIResponse = async (message) => {
         }
         break
         
-      case 'tourist':
-        if (lowerMessage.includes('景点') || lowerMessage.includes('游玩')) {
-          return '我推荐您访问故宫、天安门广场、颐和园等著名景点。建议提前查看交通状况，合理安排游览时间。'
-        } else if (lowerMessage.includes('路线') || lowerMessage.includes('规划')) {
-          return '我可以为您规划一日游路线。请告诉我您的兴趣偏好和可用时间，我会为您制定详细的游览计划。'
+      case 'driver':
+        if (lowerMessage.includes('停车') || lowerMessage.includes('车位')) {
+          return '主要商圈和交通枢纽都设有停车场，建议提前查看目的地停车信息，避免停车困难。'
+        } else if (lowerMessage.includes('加油') || lowerMessage.includes('油站')) {
+          return '市区内加油站分布较为密集，建议选择大型连锁加油站，油品质量更有保障。'
+        } else if (lowerMessage.includes('安全') || lowerMessage.includes('驾驶')) {
+          return '请遵守交通规则，保持安全车距，注意观察路况，确保行车安全。'
         }
         break
         
-      case 'business':
-        if (lowerMessage.includes('商务') || lowerMessage.includes('会议')) {
-          return '商务区主要集中在CBD、金融街等区域。建议提前规划路线，避开交通高峰，确保准时到达。'
-        } else if (lowerMessage.includes('推荐') || lowerMessage.includes('地点')) {
-          return '我推荐您考虑国贸、三里屯、望京等商务区，这些区域交通便利，配套设施完善。'
-        }
-        break
-        
-      case 'student':
-        if (lowerMessage.includes('校园') || lowerMessage.includes('学习')) {
-          return '校园周边通常有图书馆、咖啡厅等学习场所。建议选择交通便利、环境安静的地点进行学习。'
-        } else if (lowerMessage.includes('安全') || lowerMessage.includes('出行')) {
-          return '学生出行要注意安全，建议结伴而行，选择安全的交通方式，避免夜间单独出行。'
+      case 'passenger':
+        if (lowerMessage.includes('公交') || lowerMessage.includes('地铁')) {
+          return '公共交通网络覆盖完善，建议使用手机APP查询实时到站信息，合理安排出行时间。'
+        } else if (lowerMessage.includes('打车') || lowerMessage.includes('费用')) {
+          return '打车费用会根据距离和时间动态调整，建议在出行前预估费用，选择最合适的出行方式。'
         }
         break
         

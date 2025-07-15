@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth.js'
+import { showSuccess, showError, handleApiError } from '../utils/errorHandler.js'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -10,7 +11,6 @@ const authStore = useAuthStore()
 const isLogin = ref(true)
 const loginBy = ref('username')
 const countdown = ref(0)
-const successMessage = ref('')
 let timer = null
 
 // 表单数据
@@ -48,11 +48,14 @@ const handleLogin = async () => {
       await authStore.loginByEmail(loginData)
     }
 
+    // 登录成功提示
+    showSuccess('登录成功', '欢迎回来！正在跳转到主页...')
+    
     // 登录成功，跳转到主页
     router.push('/main')
   } catch (error) {
-    // 错误已在store中处理
-    console.error('登录失败:', error)
+    // 使用新的错误处理
+    handleApiError(error, '登录')
   }
 }
 
@@ -62,22 +65,20 @@ const handleLogin = async () => {
 const handleRegister = async () => {
   try {
     authStore.clearError()
-    successMessage.value = ''
     
     const response = await authStore.register(registerForm.value)
     
-    // 注册成功
-    successMessage.value = response
+    // 注册成功提示
+    showSuccess('注册成功', response || '账户创建成功，请登录')
     
     // 2秒后切换到登录页面
     setTimeout(() => {
       switchToLogin()
-      successMessage.value = ''
     }, 2000)
     
   } catch (error) {
-    // 错误已在store中处理
-    console.error('注册失败:', error)
+    // 使用新的错误处理
+    handleApiError(error, '注册')
   }
 }
 
@@ -93,7 +94,7 @@ const getVerificationCode = async () => {
     const response = await authStore.sendVerificationCode(registerForm.value.email)
     
     // 显示成功消息
-    successMessage.value = response
+    showSuccess('验证码已发送', response || '验证码已发送至您的邮箱，请注意查收')
     
     // 开始60秒倒计时
     countdown.value = 60
@@ -104,14 +105,9 @@ const getVerificationCode = async () => {
       }
     }, 1000)
     
-    // 3秒后清除成功消息
-    setTimeout(() => {
-      successMessage.value = ''
-    }, 3000)
-    
   } catch (error) {
-    // 错误已在store中处理
-    console.error('发送验证码失败:', error)
+    // 使用新的错误处理
+    handleApiError(error, '发送验证码')
   }
 }
 
@@ -121,7 +117,6 @@ const getVerificationCode = async () => {
 const switchToRegister = () => {
   isLogin.value = false
   authStore.clearError()
-  successMessage.value = ''
 }
 
 /**
@@ -130,7 +125,6 @@ const switchToRegister = () => {
 const switchToLogin = () => {
   isLogin.value = true
   authStore.clearError()
-  successMessage.value = ''
 }
 
 /**
@@ -158,21 +152,12 @@ onUnmounted(() => {
       <div class="form-container">
         <!-- 登录表单 -->
         <form v-if="isLogin" @submit.prevent="handleLogin">
-          <h2>用户登录</h2>
           
-          <!-- 登录方式选择 -->
-          <div class="login-toggle">
-            <label>
-              <input type="radio" v-model="loginBy" value="username"> 用户名
-            </label>
-            <label>
-              <input type="radio" v-model="loginBy" value="email"> 邮箱
-            </label>
-          </div>
-          
-          <!-- 错误信息显示 -->
-          <div v-if="authStore.error" class="error-message">
-            {{ authStore.error }}
+          <!-- 当前登录方式提示 -->
+          <div class="login-method-hint">
+            <span class="method-indicator">
+              {{ loginBy === 'username' ? '用户名登录' : '邮箱登录' }}
+            </span>
           </div>
           
           <div class="input-group">
@@ -193,27 +178,39 @@ onUnmounted(() => {
               :disabled="authStore.loading"
             >
           </div>
-          <button type="submit" class="btn" :disabled="authStore.loading">
-            {{ authStore.loading ? '登录中...' : '登录' }}
-          </button>
-          <p class="switch-form">
-            没有账户? <a href="#" @click.prevent="switchToRegister">立即注册</a>
-          </p>
+          
+          <!-- 登录按钮和切换按钮区域 -->
+          <div class="login-actions">
+            <!-- 切换登录方式按钮 -->
+            <button 
+              type="button" 
+              class="btn-switch" 
+              @click="loginBy = loginBy === 'username' ? 'email' : 'username'"
+              :disabled="authStore.loading"
+            >
+              {{ loginBy === 'username' ? '邮箱登录' : '用户名登录' }}
+            </button>
+            
+            <!-- 登录按钮 -->
+            <button type="submit" class="btn-submit" :disabled="authStore.loading">
+              {{ authStore.loading ? '登录中...' : '登录' }}
+            </button>
+            
+            <!-- 注册账号按钮 -->
+            <button 
+              type="button" 
+              class="btn-register" 
+              @click="switchToRegister"
+              :disabled="authStore.loading"
+            >
+              注册账号
+            </button>
+          </div>
         </form>
 
         <!-- 注册表单 -->
         <form v-else @submit.prevent="handleRegister">
           <h2>用户注册</h2>
-          
-          <!-- 错误信息显示 -->
-          <div v-if="authStore.error" class="error-message">
-            {{ authStore.error }}
-          </div>
-          
-          <!-- 成功信息显示 -->
-          <div v-if="successMessage" class="success-message">
-            {{ successMessage }}
-          </div>
           
           <div class="input-group">
             <input 
@@ -307,9 +304,18 @@ onUnmounted(() => {
           <button type="submit" class="btn" :disabled="authStore.loading">
             {{ authStore.loading ? '注册中...' : '注册' }}
           </button>
-          <p class="switch-form">
-            已有账户? <a href="#" @click.prevent="switchToLogin">立即登录</a>
-          </p>
+          
+          <!-- 返回登录按钮 -->
+          <div class="register-actions">
+            <button 
+              type="button" 
+              class="btn-back-login" 
+              @click="switchToLogin"
+              :disabled="authStore.loading"
+            >
+              返回登录
+            </button>
+          </div>
         </form>
       </div>
     </div>
@@ -345,6 +351,23 @@ h2 {
   text-align: center;
   margin-bottom: 1.5rem;
   color: #333;
+}
+
+/* 登录方式提示 */
+.login-method-hint {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.method-indicator {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background-color: #e3f2fd;
+  color: #1976d2;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: 1px solid #bbdefb;
 }
 
 .login-toggle {
@@ -403,6 +426,110 @@ input:disabled {
 
 .btn:disabled {
   background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* 登录操作按钮区域 */
+.login-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.btn-switch {
+  flex: 1;
+  padding: 0.75rem 0.5rem;
+  border: 1px solid #007bff;
+  border-radius: 4px;
+  background-color: transparent;
+  color: #007bff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.btn-switch:hover:not(:disabled) {
+  background-color: #007bff;
+  color: white;
+}
+
+.btn-switch:disabled {
+  border-color: #6c757d;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+.btn-submit {
+  flex: 2;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 4px;
+  background-color: #007bff;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.btn-submit:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.btn-submit:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.btn-register {
+  flex: 1;
+  padding: 0.75rem 0.5rem;
+  border: 1px solid #28a745;
+  border-radius: 4px;
+  background-color: transparent;
+  color: #28a745;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.btn-register:hover:not(:disabled) {
+  background-color: #28a745;
+  color: white;
+}
+
+.btn-register:disabled {
+  border-color: #6c757d;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* 注册页面操作按钮 */
+.register-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.btn-back-login {
+  padding: 0.75rem 1.5rem;
+  border: 1px solid #6c757d;
+  border-radius: 4px;
+  background-color: transparent;
+  color: #6c757d;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-back-login:hover:not(:disabled) {
+  background-color: #6c757d;
+  color: white;
+}
+
+.btn-back-login:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
 }
 

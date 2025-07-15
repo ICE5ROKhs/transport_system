@@ -65,12 +65,6 @@
           <p>正在为您规划最佳路线...</p>
         </div>
         
-        <!-- 错误状态 -->
-        <div v-if="error" class="error-container">
-          <p class="error-text">{{ error }}</p>
-          <button @click="clearError" class="retry-button">重试</button>
-        </div>
-        
         <!-- 路线列表 -->
         <div v-else-if="routes.length > 0" class="route-list">
           <div 
@@ -106,6 +100,11 @@
           <p>请设置起终点后开始路线规划</p>
         </div>
       </div>
+
+      <!-- 音乐播放器 -->
+      <div class="music-section">
+        <MusicPlayer />
+      </div>
     </div>
     
     <!-- 地图容器 -->
@@ -122,6 +121,8 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import AMapLoader from '@amap/amap-jsapi-loader'
 import { routeAPI } from '../services/api.js'
+import MusicPlayer from './MusicPlayer.vue'
+import { handleApiError, showSuccess, handleMapError } from '../utils/errorHandler.js'
 
 // 地图相关
 let map = null
@@ -138,7 +139,6 @@ const routeType = ref('fastest')
 const routes = ref([])
 const selectedRoute = ref(-1)
 const loading = ref(false)
-const error = ref(null)
 const isSettingStart = ref(true) // true: 设置起点, false: 设置终点
 
 // 计算属性
@@ -183,7 +183,7 @@ onMounted(() => {
     console.log('导航地图初始化完成')
   }).catch(e => {
     console.error("地图加载失败：", e)
-    error.value = '地图加载失败，请刷新页面重试'
+    handleMapError(e)
   })
 })
 
@@ -262,7 +262,6 @@ const planRoute = async () => {
   if (!canPlan.value) return
   
   loading.value = true
-  error.value = null
   
   try {
     const routeRequest = {
@@ -286,9 +285,11 @@ const planRoute = async () => {
     // 在地图上绘制路线
     drawRoute(response, 0)
     
+    // 显示成功消息
+    showSuccess('路线规划成功', `已为您规划${getRouteTypeName(routeType.value)}，总距离${response.totalDistance.toFixed(2)}公里`)
+    
   } catch (err) {
-    error.value = err.message || '路线规划失败，请重试'
-    console.error('路线规划失败:', err)
+    handleApiError(err, '路线规划')
   } finally {
     loading.value = false
   }
@@ -351,6 +352,7 @@ const clearRoutes = () => {
   routes.value = []
   selectedRoute.value = -1
   clearRouteLines()
+  showSuccess('路线已清除', '地图上的路线标记已清除')
 }
 
 /**
@@ -617,6 +619,11 @@ onUnmounted(() => {
   text-align: center;
   padding: 40px 20px;
   color: #999;
+}
+
+.music-section {
+  padding: 20px;
+  border-top: 1px solid #e0e0e0;
 }
 
 .map-container {

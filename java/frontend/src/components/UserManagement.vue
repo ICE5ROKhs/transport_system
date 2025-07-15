@@ -6,12 +6,6 @@
       <!-- 加载状态 -->
       <div v-if="authStore.loading" class="loading-text">正在加载用户信息...</div>
       
-      <!-- 错误状态 -->
-      <div v-else-if="error" class="error-container">
-        <div class="error-text">{{ error }}</div>
-        <button @click="loadUserInfo" class="retry-button">重新加载</button>
-      </div>
-      
       <!-- 用户信息展示 -->
       <div v-else-if="userInfo" class="user-content">
         <!-- 认证信息卡片 -->
@@ -154,11 +148,11 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useAuthStore } from '../stores/auth.js'
+import { handleApiError, showSuccess } from '../utils/errorHandler.js'
 
 const authStore = useAuthStore()
 
 // 响应式数据
-const error = ref(null)
 const isEditingAuth = ref(false)
 const isEditingProfile = ref(false)
 
@@ -182,12 +176,10 @@ const userInfo = computed(() => authStore.user)
  * 加载用户信息
  */
 const loadUserInfo = async () => {
-  error.value = null
   try {
     await authStore.fetchUserInfo()
   } catch (err) {
-    error.value = err.message || '加载用户信息失败'
-    console.error('加载用户信息失败:', err)
+    handleApiError(err, '加载用户信息')
   }
 }
 
@@ -240,8 +232,6 @@ const toggleProfileEdit = () => {
  */
 const saveAuthInfo = async () => {
   try {
-    error.value = null
-    
     // 构建更新数据，只包含有值的字段
     const updateData = {}
     
@@ -254,7 +244,7 @@ const saveAuthInfo = async () => {
     }
     
     if (Object.keys(updateData).length === 0) {
-      error.value = '没有需要更新的信息'
+      showSuccess('提示', '没有需要更新的信息')
       return
     }
     
@@ -267,11 +257,10 @@ const saveAuthInfo = async () => {
       password: ''
     }
     
-    alert('认证信息更新成功！')
+    showSuccess('更新成功', '认证信息已更新')
     
   } catch (err) {
-    error.value = err.message || '保存认证信息失败'
-    console.error('保存认证信息失败:', err)
+    handleApiError(err, '保存认证信息')
   }
 }
 
@@ -280,8 +269,6 @@ const saveAuthInfo = async () => {
  */
 const saveProfileInfo = async () => {
   try {
-    error.value = null
-    
     // 构建更新数据，只包含有值的字段
     const updateData = {}
     
@@ -302,7 +289,7 @@ const saveProfileInfo = async () => {
     }
     
     if (Object.keys(updateData).length === 0) {
-      error.value = '没有需要更新的信息'
+      showSuccess('提示', '没有需要更新的信息')
       return
     }
     
@@ -317,11 +304,10 @@ const saveProfileInfo = async () => {
       sex: ''
     }
     
-    alert('个人资料更新成功！')
+    showSuccess('更新成功', '个人资料已更新')
     
   } catch (err) {
-    error.value = err.message || '保存个人资料失败'
-    console.error('保存个人资料失败:', err)
+    handleApiError(err, '保存个人资料')
   }
 }
 

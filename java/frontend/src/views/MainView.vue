@@ -8,10 +8,12 @@
         </div>
       </div>
       <div class="menu-items">
-        <router-link to="/main/home" class="menu-item">首页</router-link> 
-        <router-link to="/main/navigation" class="menu-item">导航</router-link>
-        <router-link to="/main/map-query" class="menu-item">地图查询</router-link>
-        <router-link to="/main/user-management" class="menu-item">用户管理</router-link>
+        <TransitionGroup name="slide-card" tag="div">
+          <router-link to="/main/home" class="menu-item" key="home">首页</router-link> 
+          <router-link to="/main/navigation" class="menu-item" key="navigation">导航</router-link>
+          <router-link to="/main/map-query" class="menu-item" key="map-query">地图查询</router-link>
+          <router-link to="/main/user-management" class="menu-item" key="user-management">用户管理</router-link>
+        </TransitionGroup>
       </div>
       <div class="menu-footer">
         <button @click="handleLogout" class="logout-button" :disabled="authStore.loading">
@@ -155,5 +157,26 @@ onMounted(async () => {
   flex-grow: 1;
   padding: 0; /* 内容区域不留白 */
   overflow: auto; /* 如果内容溢出则显示滚动条 */
+}
+
+/* 侧边栏菜单滑动卡片动画 */
+.slide-card-enter-active, .slide-card-leave-active {
+  transition: all 0.4s cubic-bezier(.4,0,.2,1);
+}
+.slide-card-enter-from {
+  opacity: 0;
+  transform: translateX(-30px) scale(0.96);
+}
+.slide-card-enter-to {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+.slide-card-leave-from {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+.slide-card-leave-to {
+  opacity: 0;
+  transform: translateX(-30px) scale(0.96);
 }
 </style>
