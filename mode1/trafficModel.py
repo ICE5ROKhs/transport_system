@@ -113,9 +113,10 @@ print(f"  预测最小值: {y_pred.min():.2f}")
 print(f"  预测最大值: {y_pred.max():.2f}")
 print(f"  预测平均值: {y_pred.mean():.2f}")
 
-# 计算 R² 分数
+# 计算 R2 分数
 from sklearn.metrics import r2_score
 r2 = r2_score(y_test, y_pred)
-print(f"R² 分数: {r2:.4f}")
+print(f"R2 分数: {r2:.4f}")  # 替代特殊字符
+
 
 print(f"\n模型训练和评估完成！")
