@@ -1,0 +1,50 @@
+---
+alwaysApply: true
+---
+项目的结构是：
+my-map-app/
+├── public/
+│   └── index.html
+├── src/
+│   ├── assets/                   # 静态资源
+│   ├── components/              # 纯 UI 组件（无业务逻辑）
+│   │   ├── common/              # 通用组件（按钮、卡片等）
+│   │   ├── layout/              # 页面布局组件（侧边栏、导航栏）
+│   │   ├── music/               # 音乐播放器组件
+│   │   └── theme/               # 主题切换组件
+│   ├── features/                # 功能模块（拆分函数逻辑）
+│   │   ├── auth/                # 登录、注册相关逻辑函数
+│   │   │   ├── useLogin.ts
+│   │   │   ├── useRegister.ts
+│   │   │   └── auth.api.ts
+│   │   ├── dashboard/           # 仪表盘相关业务逻辑
+│   │   │   ├── useStats.ts
+│   │   │   └── dashboard.api.ts
+│   │   ├── navigation/          # 路线规划、高德地图交互逻辑
+│   │   │   ├── useMap.ts
+│   │   │   ├── useRoutePlanner.ts
+│   │   │   └── amap.api.ts
+│   │   └── assistant/           # AI助手逻辑
+│   │       ├── useAssistant.ts
+│   │       └── assistant.api.ts
+│   ├── pages/                   # 路由页面组件（页面级）
+│   │   ├── Login.tsx
+│   │   └── Home/
+│   │       ├── Dashboard.tsx
+│   │       ├── SmartNav.tsx
+│   │       └── Profile.tsx
+│   ├── types/                   # 全局 TS 类型定义
+│   │   ├── auth.d.ts
+│   │   ├── route.d.ts
+│   │   └── user.d.ts
+│   ├── hooks/                   # 自定义 Hook（跨模块复用）
+│   ├── utils/                   # 工具函数（格式化、校验等）
+│   ├── store/                   # 全局状态管理（如zustand/pinia/redux）
+│   ├── router/                  # React Router 配置
+│   ├── App.tsx                  # 根组件
+│   ├── main.tsx                 # 应用入口
+│   └── index.css
+├── vite.config.ts
+├── tailwind.config.js
+├── tsconfig.json
+└── package.json

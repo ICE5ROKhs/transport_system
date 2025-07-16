@@ -1,5 +1,39 @@
 ---
-description:
-globs:
-alwaysApply: false
+alwaysApply: true
 ---
+以下是数据库设计,实体设计等必须严格按照此{
+1.道路结点（位于交叉路口）
+Node{
+nodeID int, 
+latitude varchar,
+longtitude varchar
+}
+2.路径：
+Edge{
+nodeID1 int,
+nodeID2 int,
+distance float
+}
+3.节点监测的车流量,原trafficdata：
+Flow{
+day int,
+timeStamp int,
+nodeID int,
+flow int
+}
+用户表被分为了两个表：1.用户个人信息：
+userInfo{
+userID int,
+userName varchar,（即真实姓名）
+phone varchar,
+age int,
+sex varchar
+}
+5.用户认证信息
+userLogInfo{
+userID int,
+accountName varchar,(即账户名）
+code varchar,（即password)
+email varchar
+}
+}

@@ -3,7 +3,7 @@ package com.example.navigation.controller;
 import com.example.navigation.model.dto.auth.AuthResponse;
 import com.example.navigation.model.dto.auth.LoginRequest;
 import com.example.navigation.model.dto.auth.LoginByUsernameRequest;
-import com.example.navigation.model.dto.RegisterRequest;
+import com.example.navigation.model.dto.auth.RegisterRequest;
 import com.example.navigation.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;

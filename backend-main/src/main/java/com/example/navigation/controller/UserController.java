@@ -97,7 +97,7 @@ public class UserController {
      * 获取当前用户个人资料
      */
     @GetMapping("/profile")
-    public ResponseEntity<UserProfileResponse> getUserProfile(HttpServletRequest request) {
+    public ResponseEntity<?> getUserProfile(HttpServletRequest request) {
         logger.info("获取当前用户个人资料请求");
         
         try {
@@ -105,16 +105,24 @@ public class UserController {
             UserLogInfo userLogInfo = userService.findByAccountName(username);
             UserInfo userInfo = userService.findUserInfoByID(userLogInfo.getUserID());
             
-            UserProfileResponse.UserProfileData data = new UserProfileResponse.UserProfileData(
+            UserProfileResponse profileData = new UserProfileResponse(
                 userInfo.getUserName(),
                 userInfo.getPhone(),
                 userInfo.getAge(),
-                userInfo.getSex()
+                userInfo.getSex(),
+                false // 临时设置，后面会通过方法计算
             );
             
-            UserProfileResponse response = new UserProfileResponse(true, data);
+            // 设置个人资料完善状态
+            profileData.setProfileComplete(profileData.isProfileComplete());
             
-            logger.info("获取用户个人资料成功: username={}", username);
+            // 构建响应
+            java.util.Map<String, Object> response = new java.util.HashMap<>();
+            response.put("success", true);
+            response.put("data", profileData);
+            
+            logger.info("获取用户个人资料成功: username={}, isComplete={}", 
+                       username, profileData.isProfileComplete());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("获取用户个人资料失败: error={}", e.getMessage());

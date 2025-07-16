@@ -263,4 +263,34 @@ public class UserService {
         
         logger.info("用户删除完成: userID={}", userID);
     }
+
+    /**
+     * 检查用户是否需要完善个人资料
+     */
+    public boolean needCompleteProfile(Integer userID) {
+        logger.debug("检查用户个人资料完善状态: userID={}", userID);
+        
+        try {
+            UserInfo userInfo = findUserInfoByID(userID);
+            
+            // 判断个人资料是否完善（所有字段都不为空且不为默认值）
+            boolean isComplete = userInfo.getUserName() != null && 
+                               !userInfo.getUserName().trim().isEmpty() && 
+                               !userInfo.getUserName().equals("未知") &&
+                               userInfo.getPhone() != null && 
+                               !userInfo.getPhone().trim().isEmpty() &&
+                               userInfo.getAge() != null && 
+                               userInfo.getAge() > 0 &&
+                               userInfo.getSex() != null && 
+                               !userInfo.getSex().trim().isEmpty() && 
+                               !userInfo.getSex().equals("未知");
+            
+            logger.debug("用户个人资料状态: userID={}, isComplete={}", userID, isComplete);
+            return !isComplete; // 返回是否需要完善（与完善状态相反）
+            
+        } catch (Exception e) {
+            logger.warn("检查用户个人资料状态失败: userID={}, error={}", userID, e.getMessage());
+            return true; // 出错时默认需要完善
+        }
+    }
 }

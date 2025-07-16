@@ -3,9 +3,9 @@ package com.example.navigation.service;
 import com.example.navigation.model.dto.auth.AuthResponse;
 import com.example.navigation.model.dto.auth.LoginRequest;
 import com.example.navigation.model.dto.auth.LoginByUsernameRequest;
+import com.example.navigation.model.dto.auth.RegisterRequest;
 import com.example.navigation.enums.BusinessErrorCode;
 import com.example.navigation.exception.BusinessException;
-import com.example.navigation.model.dto.RegisterRequest;
 import com.example.navigation.model.entity.UserLogInfo;
 import com.example.navigation.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +40,12 @@ public class AuthService {
         if (userService.existsByEmail(request.getEmail())) {
             logger.warn("邮箱已被注册: {}", request.getEmail());
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "注册失败：邮箱已被注册");
+        }
+
+        // 检查用户名是否已存在
+        if (userService.existsByAccountName(request.getUsername())) {
+            logger.warn("用户名已被注册: {}", request.getUsername());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "注册失败：用户名已被注册");
         }
 
         // 验证验证码
@@ -81,10 +87,13 @@ public class AuthService {
             // 生成JWT令牌（使用账户名）
             String token = jwtTokenProvider.generateToken(userLogInfo.getAccountName());
             
-            logger.info("用户邮箱登录成功: email={}, userID={}, accountName={}", 
-                       request.getEmail(), userLogInfo.getUserID(), userLogInfo.getAccountName());
+            // 检查个人资料完善状态
+            boolean needCompleteProfile = userService.needCompleteProfile(userLogInfo.getUserID());
             
-            return new AuthResponse(token, userLogInfo.getAccountName());
+            logger.info("用户邮箱登录成功: email={}, userID={}, accountName={}, needCompleteProfile={}", 
+                       request.getEmail(), userLogInfo.getUserID(), userLogInfo.getAccountName(), needCompleteProfile);
+            
+            return new AuthResponse(token, userLogInfo.getAccountName(), needCompleteProfile);
             
         } catch (BusinessException e) {
             // 重新抛出业务异常
@@ -115,10 +124,13 @@ public class AuthService {
             // 生成JWT令牌（使用账户名）
             String token = jwtTokenProvider.generateToken(userLogInfo.getAccountName());
             
-            logger.info("用户名登录成功: username={}, userID={}", 
-                       request.getUsername(), userLogInfo.getUserID());
+            // 检查个人资料完善状态
+            boolean needCompleteProfile = userService.needCompleteProfile(userLogInfo.getUserID());
             
-            return new AuthResponse(token, userLogInfo.getAccountName());
+            logger.info("用户名登录成功: username={}, userID={}, needCompleteProfile={}", 
+                       request.getUsername(), userLogInfo.getUserID(), needCompleteProfile);
+            
+            return new AuthResponse(token, userLogInfo.getAccountName(), needCompleteProfile);
             
         } catch (BusinessException e) {
             // 重新抛出业务异常
