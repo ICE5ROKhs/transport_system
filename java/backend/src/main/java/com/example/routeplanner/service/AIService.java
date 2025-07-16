@@ -124,11 +124,10 @@ public class AIService {
      * 流式对话（需要单独的流式处理实现）
      */
     public void streamChat(AIRequest request, StreamCallback callback) {
-        // 注意：这里需要实现SSE流式处理，简化示例
+
         request.setStream(true);
 
-        // 实际实现需要使用SSE客户端来处理流式响应
-        // 这里提供一个基本的结构
+
         try {
             AIResponse response = chatCompletion(request);
             callback.onMessage(response);
@@ -224,7 +223,7 @@ public class AIService {
     }
 
     /**
-     * 获取支持的模型列表（示例）
+     * 获取支持的模型列表
      */
     public List<String> getSupportedModels() {
         return List.of(

@@ -5,7 +5,7 @@ Content-Type: application/json
   "messages": [
     {
       "role": "user",
-      "content": "你好。"
+      "content": "从北京交通大学到北京大学的路线。"
     }
   ],
   "model": "ernie-3.5-8k"

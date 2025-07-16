@@ -461,41 +461,7 @@ public class RouteController {
         }
 
         // Getters and Setters
-        public boolean isSuccess() {
-            return success;
-        }
 
-        public void setSuccess(boolean success) {
-            this.success = success;
-        }
-
-        public String getMessage() {
-            return message;
-        }
-
-        public void setMessage(String message) {
-            this.message = message;
-        }
-
-        public RouteResponse getOptimalRoute() {
-            return optimalRoute;
-        }
-
-        public void setOptimalRoute(RouteResponse optimalRoute) {
-            this.optimalRoute = optimalRoute;
-        }
-
-        public RouteResponse getShortestRoute() {
-            return shortestRoute;
-        }
-
-        public void setShortestRoute(RouteResponse shortestRoute) {
-            this.shortestRoute = shortestRoute;
-        }
-
-        public RouteComparison getComparison() {
-            return comparison;
-        }
 
         public void setComparison(RouteComparison comparison) {
             this.comparison = comparison;
@@ -534,17 +500,10 @@ public class RouteController {
             this.distanceDifference = distanceDifference;
         }
 
-        public double getDistanceRatio() {
-            return distanceRatio;
-        }
-
         public void setDistanceRatio(double distanceRatio) {
             this.distanceRatio = distanceRatio;
         }
 
-        public double getCongestionDifference() {
-            return congestionDifference;
-        }
 
         public void setCongestionDifference(double congestionDifference) {
             this.congestionDifference = congestionDifference;
@@ -558,9 +517,6 @@ public class RouteController {
             this.congestionRatio = congestionRatio;
         }
 
-        public int getPathLengthDifference() {
-            return pathLengthDifference;
-        }
 
         public void setPathLengthDifference(int pathLengthDifference) {
             this.pathLengthDifference = pathLengthDifference;
@@ -574,9 +530,6 @@ public class RouteController {
             this.samePath = samePath;
         }
 
-        public String getRecommendation() {
-            return recommendation;
-        }
 
         public void setRecommendation(String recommendation) {
             this.recommendation = recommendation;
